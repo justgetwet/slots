@@ -1,7 +1,5 @@
 import numpy as np
 from numba import njit
-from numba.typed import Dict
-from numba.types import types
 from okidoki2_mode import set_mode, change_mode
 
 """ 沖ドキ2
@@ -59,18 +57,18 @@ def okidoki2(s, game=967):
   p[8][:] = 16384.0 # kakutei cherry
   p[9][:] = 16384.0 # chudan cherry
   # p[10]  =  40.0,  38.9,  37.8,  36.8,  35.9,  35.0 # cherry <= round_error.size
-  q = np.reciprocal(p)
-  sum_row = np.sum(q, axis=0)
+  r = np.reciprocal(p)
+  sum_row = np.sum(r, axis=0)
   round_error = 1 - sum_row[s]
-  r = q[:, s]
-  seq = r[0]+round_error, r[1]+r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9]
+  q = r[:, s]
+  seq = q[0]+round_error, q[1]+q[2], q[3], q[4], q[5], q[6], q[7], q[8], q[9]
   role = np.array(seq)
 
   # モード抽選
   ceiling = 967, 967, 224, 468, 32
-  # mode_p = ab(s) # モード
+  mode_p = ab(s) # モード
   # mode_p = chance()
-  mode_p = heaven()
+  # mode_p = heaven()
 
   rnd = np.random.rand(game)
   roles = np.searchsorted(np.cumsum(role), rnd) # 小役抽選
@@ -88,7 +86,7 @@ def okidoki2(s, game=967):
 
   # mode = set_mode(s, role)
   # print(s, role, mode)
-@njit("void(i8, i8)", cache=True)
+@njit("void(i8,i8)", cache=True)
 def main(s, trial=1000):
   w = np.empty(trial)
   for i in range(trial):
