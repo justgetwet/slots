@@ -72,13 +72,13 @@ def play(s, role_p, mode_p, mode):
   ceilings[2]  = 224 # chance
   ceilings[3:] =  32 # heaven
   
-  c_game = ceilings[mode]
-  m_p = mode_p[mode]
-  rnd = np.random.rand(c_game)
+  ceiling_game = ceilings[mode]
+  mode_prob = mode_p[mode]
+  rnd = np.random.rand(ceiling_game)
   roles = np.searchsorted(np.cumsum(role_p), rnd) # 小役抽選
-  bonus_p = [m_p[role] for role in roles]
-  result = np.array(bonus_p) > np.random.rand(c_game) # ボーナス抽選
-  wingame = c_game #.item()
+  bonus_p = [mode_prob[role] for role in roles]
+  result = np.array(bonus_p) > np.random.rand(ceiling_game) # ボーナス抽選
+  wingame = ceiling_game
   role = 0
   if np.any(result):
     i, = np.where(result==True)
