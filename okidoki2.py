@@ -9,8 +9,9 @@ from okidoki2_mode import set_mode, change_mode
   rate =   97.0,  98.6, 101.0, 103.1, 105.0, 107.0
 """
 
-@njit("Tuple((f8,f8,f8,f8,f8,f8,f8,f8,f8))(i8)", cache=True)
+@njit("f8[:](i8)")
 def ab(s):
+  s = s - 1
   p = np.empty((4, 6))
   p[0] =  0.19,  0.19,  0.21,  0.21,  0.23,  0.23 # % cbell, obell, replay
   p[1] =  1.0,   1.0,   1.27,  1.43,  1.56,  1.56 # cherry
@@ -18,10 +19,9 @@ def ab(s):
   p[3] = 100.0, 100.0, 100.0, 100.0, 100.0, 100.0 # reach, kakutei chudan
   p *= 1/100
   q = p[:, s]
-  # print(q)
-  return 0., q[0], q[0], q[0], q[1], q[2], q[3], q[3], q[3]
+  return np.array([0., q[0], q[0], q[0], q[1], q[2], q[3], q[3], q[3]])
 
-@njit("Tuple((f8,f8,f8,f8,f8,f8,f8,f8,f8))()", cache=True)
+@njit("f8[:]()")
 def chance():
   p = np.empty(4)
   p[0] =   0.56 # cbell, obell, replay
@@ -29,9 +29,9 @@ def chance():
   p[2] =  10.0  # suika
   p[3] = 100.0  # reach, kakutei cherry, chudan cherry
   p *= 1/100
-  return 0., p[0], p[0], p[0], p[1], p[2], p[3], p[3], p[3]
+  return np.array([0., p[0], p[0], p[0], p[1], p[2], p[3], p[3], p[3]])
 
-@njit("Tuple((f8,f8,f8,f8,f8,f8,f8,f8,f8))()", cache=True)
+@njit("f8[:]()")
 def heaven():
   p = np.empty(4)
   p[0] =  10.42 # cbell, obell, replay
@@ -39,11 +39,10 @@ def heaven():
   p[2] =  25.0  # suika
   p[3] = 100.0  # reach, kakutei cherry, chudan cherry
   p *= 1/100
-  return 0., p[0], p[0], p[0], p[1], p[2], p[3], p[3], p[3]
+  return np.array([0., p[0], p[0], p[0], p[1], p[2], p[3], p[3], p[3]])
 
-@njit("i8(i8,i8)", cache=True)
-def okidoki2(s, game=967):
-  s = s - 1
+@njit("f8[:](i8)")
+def role_probability(s):
   # 小役確率
   p = np.empty((10, 6))
   p[0] =  24.6,  24.6,  24.6,  24.6,  24.6,  24.6 # blank
@@ -62,39 +61,83 @@ def okidoki2(s, game=967):
   round_error = 1 - sum_row[s]
   q = r[:, s]
   seq = q[0]+round_error, q[1]+q[2], q[3], q[4], q[5], q[6], q[7], q[8], q[9]
-  role = np.array(seq)
+  
+  return np.array(seq)
 
-  # モード抽選
-  ceiling = 967, 967, 224, 468, 32
-  mode_p = ab(s) # モード
-  # mode_p = chance()
-  # mode_p = heaven()
+@njit("Tuple((i8,i8))(i8,f8[:],i8)")
+def play_game(s, role_p, mode):
 
-  rnd = np.random.rand(game)
-  roles = np.searchsorted(np.cumsum(role), rnd) # 小役抽選
-  role_p = [mode_p[i] for i in roles]
-  result = np.array(role_p) > np.random.rand(game) # ボーナス抽選
-  wingame = game
+  # モード
+  mode_p = ab(s)
+  ceiling = 967
+  mode_p = ab(s) # モードAB
+  if mode == 2:
+    mode_p = chance() # チャンス
+    ceiling = 224
+  if mode == 3:
+    game = 468 # 準備
+  if mode > 3:
+    ceiling = 32
+    mode_p = heaven() # 天国
+  
+  rnd = np.random.rand(ceiling)
+  roles = np.searchsorted(np.cumsum(role_p), rnd) # 小役抽選
+  bonus_p = [mode_p[i] for i in roles]
+  result = np.array(bonus_p) > np.random.rand(ceiling) # ボーナス抽選
+  wingame = ceiling
+  winrole = 0
   if np.any(result):
     i, = np.where(result==True)
-    wingame = i[0]
+    wingame = i[0] + 1
+    winrole = roles[i[0]]
 
-  return wingame
-  # role = 0
-  # while not role:
-  #   role = func(p, np.random.rand())
+  next_mode = change_mode(s, winrole, mode)
 
-  # mode = set_mode(s, role)
-  # print(s, role, mode)
-@njit("void(i8,i8)", cache=True)
-def main(s, trial=1000):
-  w = np.empty(trial)
-  for i in range(trial):
-    w[i] = okidoki2(s, game=5000)
-  
-  print(np.mean(w))
-    
+  return wingame, next_mode
+
+@njit("void(i8,i8)")
+def main(s, trial):
+
+  wgames = np.zeros(100000, dtype=np.int64)
+  s = s - 1
+  p = role_probability(s)
+  j = 0
+  for i in np.arange(trial):
+    role = 0
+    while not role:
+      role = np.searchsorted(np.cumsum(p), np.random.rand())
+    mode = set_mode(s, role)
+    game, next_mode = play_game(s, p, mode)
+    if i == 0:
+      wgames[i] = game
+    else:
+      wgames[j] = game + 32
+    j += 1
+    # print("abc", game, next_mode)
+    if next_mode == 3: # prepare
+      game, next_mode = play_game(s, p, next_mode)
+      if i == 0:
+        wgames[j] = game
+      else:
+        wgames[j] = game + 32
+      j += 1
+      # print("prepare", game, next_mode)
+    if next_mode > 3: # end以上
+      end_count = 0
+      if next_mode == 4:
+        end_count += 1
+      while end_count < 2:
+        game, next_mode = play_game(s, p, next_mode)
+        wgames[j] = game
+        j += 1
+        if next_mode == 4:
+          end_count += 1
+        else:
+          pass
+          # print("heaven", game, next_mode)
+      # print("end")
+  print(wgames[wgames.nonzero()])
 
 if __name__ == '__main__':
 
-  main(s=6, trial=10000)
+  main(2, 100)

@@ -71,8 +71,8 @@ def change_mode(s, role, mode):
   gets[7] = "kcherry"
   gets[8] = "ccherry"
 
-  p = np.empty((6, 6))
-  q = np.empty((9, 6))
+  p = np.empty((6, 6)) # 1 - 6 settings
+  q = np.empty((9, 6)) # 9 mode
 
   if gets[role] in ["No rare", "cherry"] and mode == 0: # mode A
     # prepare, end, heaven, dokidoki, superdokidoki, ensure
@@ -170,15 +170,15 @@ if __name__ == '__main__':
   gets[6] = "reach"
   gets[7] = "kcherry"
   gets[8] = "ccherry"
-  role = 8
+  role = 4
   print(gets[role])
   trial = 100000
   for s in [1,2,3,4,5,6]:
     s = s-1
     arr = np.empty(trial, dtype=np.int64)
     for i in range(trial):
-      arr[i] = set_mode(s, role)
-      # arr[i] = change_mode(s, role, mode=1)
+      # arr[i] = set_mode(s, role)
+      arr[i] = change_mode(s, role, mode=1)
     m = np.empty(9)
     for i in range(9):
       x = np.count_nonzero(arr==i)
