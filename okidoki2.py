@@ -64,13 +64,26 @@ def role_probability(s):
   
   return np.array(seq) # 1 x 9
 
-@njit("Tuple((i8,i8))(i8,f8[:],f8[:,:],i8)")
-def play(s, role_p, mode_p, mode):
+@njit("i8(i8,i8)")
+def get_bonus(role, mode):
+  p = [0.5, 0.5]
+  if mode > 3: # heaven
+    p = [0.6, 0.4]
+  if role == 5 or role > 6: # cherry
+    p = [1.0, 0.0]
+  i = np.searchsorted(np.cumsum(np.array(p)), np.random.rand())
+  payout = np.array([220, 60], dtype=np.int64)
+  
+  return payout[i]
 
+@njit("Tuple((i8,i8,i8))(i8,f8[:],f8[:,:],i8)")
+def play(s, role_p, mode_p, mode):
+  # WINゲーム数と次のモードを返す。終了モードまでループさせる。
   ceilings = np.zeros(9, np.int64)
   ceilings[:2] = 967 # A, B
   ceilings[2]  = 224 # chance
-  ceilings[3:] =  32 # heaven
+  ceilings[3]  = 468 # prepara
+  ceilings[4:] =  32 # end, heaven
   
   ceiling_game = ceilings[mode]
   mode_prob = mode_p[mode]
@@ -85,17 +98,18 @@ def play(s, role_p, mode_p, mode):
     wingame = i[0] + 1
     role = roles[i[0]]
 
+  bonus = get_bonus(role, mode)
   next_mode = change_mode(s, role, mode)
   
-  return wingame, next_mode
+  return wingame, bonus, next_mode
 
 @njit("void(i8,i8)")
 def main(s, trial):
-
-  wgames = np.zeros(10000000, dtype=np.int64) # 1,000,000 trial x 10 ren
   s = s - 1
+  wgames = np.zeros(10000000, dtype=np.int64) # 1,000,000 trial x 10 ren
   mode_p = mode_probability(s) # 9 x 9
   role_p = role_probability(s) # 1 x 9
+  payout = 0
   j = 0
   for i in np.arange(trial):
     role = 0
@@ -103,23 +117,47 @@ def main(s, trial):
       role = np.searchsorted(np.cumsum(role_p), np.random.rand())
 
     mode = set_mode(s, role)
-    game, next_mode = play(s, role_p, mode_p, mode)
-    wgames[j] = game
-    if j: wgames[j] += 32
+    wgame, bonus, next_mode = play(s, role_p, mode_p, mode)
+    if not j == 0:
+      wgame += 32 # 他もいる?    
+    wgames[j] = wgame
     j += 1
+    payout += bonus
+    if next_mode == 2: # chance
+      wgame, bonus, next_mode = play(s, role_p, mode_p, next_mode)
+      wgames[j] = wgame
+      j += 1
+      payout += bonus
+    if next_mode == 3: #prepara
+      wgame, bonus, next_mode = play(s, role_p, mode_p, next_mode)
+      wgames[j] = wgame
+      j += 1
+      payout += bonus
     if next_mode > 3: # end以上
       count = 0
-      if next_mode == 4:
+      if next_mode == 4: # end
         count += 1
       while count < 2:
-        game, next_mode = play(s, role_p, mode_p, mode)
-        wgames[j] = game
-        j += 1
+        wgame, bonus, next_mode = play(s, role_p, mode_p, next_mode)
         if next_mode == 4:
           count += 1
+          if count == 1:
+            wgames[j] = wgame
+            j += 1
+            payout += bonus
+        else:
+          wgames[j] = wgame
+          j += 1
+          payout += bonus
 
-  print(wgames[wgames.nonzero()])
+  # print(payout)
+  w = wgames[wgames.nonzero()]
+  invest = np.sum(w) * (50/51)
+  print(round((payout/invest)*100, 2))
+  #print(w)
 
 if __name__ == '__main__':
 
-  main(2, 3)
+  for s in [1,2,3,4,5,6]:
+    main(s, trial=10000)
+
