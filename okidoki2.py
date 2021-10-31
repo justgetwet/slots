@@ -11,7 +11,8 @@ from okidoki2_mode import set_mode, change_mode
 
 @njit("f8[:,:](i8)")
 def mode_probability(s):
-  # ボーナスの当選率
+  # モード毎のボーナス当選率
+  # ベルとリプレイ、チェリー、スイカ、リーチ目、確定・中段チェリーで抽選
   m_p = np.empty((9, 9))
   # mode A, B
   p0 = np.empty((4, 6))
@@ -41,6 +42,13 @@ def mode_probability(s):
 
   return m_p # 9 x 9
 
+def onegame_win_lottery():
+  pass
+  # continuous win states win 
+  # 規定G数短縮抽選 天国以上 12.5、移行抽選行う
+  # 消化中の1g連ストック blank 123- 0.4 456-1.6 cherry 1.6 suika 3.9 reach- 100%
+  # ストックの場合は、移行抽選を行わない
+
 @njit("f8[:](i8)")
 def role_probability(s):
   # 小役確率
@@ -65,7 +73,7 @@ def role_probability(s):
   return np.array(seq) # 1 x 9
 
 @njit("i8(i8,i8)")
-def get_bonus(role, mode):
+def bonus_lottery(role, mode):
   p = [0.5, 0.5]
   if mode > 3: # heaven
     p = [0.6, 0.4]
@@ -98,7 +106,7 @@ def play(s, role_p, mode_p, mode):
     wingame = i[0] + 1
     role = roles[i[0]]
 
-  bonus = get_bonus(role, mode)
+  bonus = bonus_lottery(role, mode)
   next_mode = change_mode(s, role, mode)
   
   return wingame, bonus, next_mode
