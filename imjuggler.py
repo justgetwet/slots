@@ -7,7 +7,7 @@ from numba import njit
 # Rate = 97.0, 98.0, 99.5, 101.1, 103.3, 105.5
 # Bns = 168.5, 161.0, 148.6, 142.2, 128.5, 127.5
 
-# @njit("Tuple((i8,i8))(i8,i8)", cache=True)
+#@njit("Tuple((i8,i8))(i8,i8)", cache=True)
 def imJuggler(s, game=8000):
 
   s = s-1
@@ -24,37 +24,43 @@ def imJuggler(s, game=8000):
   q[4][:] = 7.0    # replay
 
   _p = np.reciprocal(p)
-  no_bonus = 1 - np.sum(_p, axis=0)[s]
-  bonus_p = np.hstack((np.array([no_bonus]), _p[:,s]))
+  lose = 1 - np.sum(_p, axis=0)[s]
+  bonus_p = np.hstack((np.array([lose]), _p[:,s]))
   
   _q = np.reciprocal(q)
-  no_role = 1 - np.sum(_q, axis=0)[s]
-  role_p = np.hstack((np.array([no_role]), _q[:,s]))
+  loose = 1 - np.sum(_q, axis=0)[s]
+  role_p = np.hstack((np.array([loose]), _q[:,s]))
 
   rnd = np.random.rand(game)
-  bonus = np.searchsorted(np.cumsum(bonus_p), rnd)
-  roles = np.searchsorted(np.cumsum(role_p), rnd)
+  bonus = np.searchsorted(bonus_p.cumsum(), rnd)
+  role = np.searchsorted(role_p.cumsum(), rnd)
   idx, = bonus.nonzero()
-  roles[idx] = 0
-  arr = bonus * 10 + roles
+  role[idx] = 0
+  arr = bonus * 10 + role
 
-  keys    = 0, 1, 2, 3, 4, 5, 10, 20
-  payouts = 0, 8, 1, 14, 10, 3, 252, 96
-  dic = {}
-  for key, payout in zip(keys, payouts):
-    dic[key] = payout
-
-  f = np.frompyfunc(lambda x: dic[x], 1, 1) # numpy
+  keys = 0, 1, 2, 3, 4, 5, 10, 20
+  outs = 0, 8, 1, 14, 10, 3, 252, 96
+  d = {}
+  for key, out in zip(keys, outs):
+    d[key] = out
+  
+  f = np.frompyfunc(lambda x: d[x], 1, 1) # numpy
   result = f(arr)
-  # result = np.array([dic[x] for x in arr]) # numba
+  # result = np.array([d[x] for x in arr]) # numba
+
+  bb = np.count_nonzero(arr==10)
+  rb = np.count_nonzero(arr==20)
 
   payout = result.sum()
   invest = result.size * 3
 
-  return payout, invest
+  return bb, rb, payout, invest
 
 if __name__ == '__main__':
   
-  for s in [1,2,3,4,5,6]:
-    p, i = imJuggler(s, game=1000000)
-    print(f"{s} rate {round((p/i)*100, 1)} balance {p-i}")
+  bb, rb, payout, invest = imJuggler(s=2, game=1000)
+  print(bb, rb, payout, invest)
+
+  # for s in [1,2,3,4,5,6]:
+  #   p, i = imJuggler(s, game=1000000)
+  #   print(f"{s} rate {round((p/i)*100, 1)} balance {p-i}")
