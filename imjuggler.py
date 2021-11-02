@@ -36,20 +36,20 @@ def imJuggler(s, game=8000):
   role = np.searchsorted(role_p.cumsum(), rnd)
   idx, = bonus.nonzero()
   role[idx] = 0
+  
   arr = bonus * 10 + role
+  bb = np.count_nonzero(arr==10)
+  rb = np.count_nonzero(arr==20)
 
   keys = 0, 1, 2, 3, 4, 5, 10, 20
-  outs = 0, 8, 1, 14, 10, 3, 252, 96
+  coins = 0, 8, 1, 14, 10, 3, 252, 96
   d = {}
-  for key, out in zip(keys, outs):
-    d[key] = out
+  for key, coin in zip(keys, coins):
+    d[key] = coin
   
   f = np.frompyfunc(lambda x: d[x], 1, 1) # numpy
   result = f(arr)
   # result = np.array([d[x] for x in arr]) # numba
-
-  bb = np.count_nonzero(arr==10)
-  rb = np.count_nonzero(arr==20)
 
   payout = result.sum()
   invest = result.size * 3
