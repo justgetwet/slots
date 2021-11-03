@@ -23,13 +23,13 @@ def imJuggler(s, game=8000):
   q[3][:] = 1024.0 # crown
   q[4][:] = 7.0    # replay
 
-  _p = np.reciprocal(p)
-  lose = 1 - np.sum(_p, axis=0)[s]
-  bonus_p = np.hstack((np.array([lose]), _p[:,s]))
+  rp = np.reciprocal(p)
+  lose = 1 - np.sum(rp, axis=0)[s]
+  bonus_p = np.hstack((np.array([lose]), rp[:,s]))
   
-  _q = np.reciprocal(q)
-  loose = 1 - np.sum(_q, axis=0)[s]
-  role_p = np.hstack((np.array([loose]), _q[:,s]))
+  rq = np.reciprocal(q)
+  loose = 1 - np.sum(rq, axis=0)[s]
+  role_p = np.hstack((np.array([loose]), rq[:,s]))
 
   rnd = np.random.rand(game)
   bonus = np.searchsorted(bonus_p.cumsum(), rnd)
