@@ -22,5 +22,5 @@ def imBinomial(game):
     print(s, round(rate, 2))
 
 if __name__ == '__main__':
-  
+  # add .
   imBinomial(10**18)
